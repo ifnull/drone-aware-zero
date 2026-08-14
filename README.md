@@ -233,4 +233,4 @@ Release notes live in [CHANGELOG.md](./CHANGELOG.md).
 
 ## Credit & license
 
-Inspired by the [DroneAware Node feeders](https://droneaware.io/). If you are looking for a user friendly experience, take a look at that project. See [LICENSE](./LICENSE).
+Inspired by the [DroneAware Node feeders](https://droneaware.io/). If you are looking for a user friendly experience, take a look at that project. Released under the [MIT License](./LICENSE).
