@@ -85,6 +85,7 @@ _DASHBOARD_HTML = """<!doctype html>
   .maplink:hover { color: var(--hi); border-bottom-color: var(--dim); }
   .live-badge { color: #4caf50; font-size: 0.65rem; margin-left: 0.35rem;
                 vertical-align: middle; letter-spacing: 0.04em; }
+  .loctype { color: var(--muted); font-size: 0.8em; }
   .unit-toggle { display: inline-flex; gap: 2px; background: var(--rule);
                  padding: 2px; border-radius: 4px; margin-left: auto; }
   .unit-pill   { background: transparent; border: 0; color: var(--dim);
@@ -218,6 +219,14 @@ function coordCell(lat, lon) {
        + '" target="_blank" rel="noopener noreferrer">' + txt + '</a>';
 }
 
+// Operator location_type annotation. "takeoff" is the drone's own launch
+// point, not a live operator fix — flag it so it doesn't read as "the
+// operator is standing where the drone took off."
+function locTypeSuffix(locType) {
+  if (locType == null || locType === 'live_gnss') return '';
+  return ' <span class="loctype">(' + escapeHtml(locType) + ')</span>';
+}
+
 async function fetchJSON(path) {
   const r = await fetch(path, { cache: 'no-store' });
   if (!r.ok) throw new Error(r.status);
@@ -321,7 +330,8 @@ async function tick() {
         + '<td>' + (d.ua_type || '–') + '</td>'
         + '<td>' + (d.self_id ? escapeHtml(d.self_id) : '–') + '</td>'
         + '<td class="num">' + coordCell(d.lat, d.lon) + '</td>'
-        + '<td class="num">' + coordCell(d.operator?.lat, d.operator?.lon) + '</td>'
+        + '<td class="num">' + coordCell(d.operator?.lat, d.operator?.lon)
+          + locTypeSuffix(d.operator?.location_type) + '</td>'
         + '<td class="num">' + fmt.num(conv.alt(d.alt_geom_ft), 0) + ' ' + lbl.alt() + '</td>'
         + '<td class="num">' + fmt.num(conv.alt(d.agl_ft), 0) + ' ' + lbl.alt() + '</td>'
         + '<td class="num">' + fmt.num(conv.spd(d.gs), 1) + ' ' + lbl.spd() + '</td>'

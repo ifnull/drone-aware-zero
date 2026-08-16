@@ -64,6 +64,7 @@ Use stdlib `http.server` — no async, no extra deps. dump3411 is designed to ru
 | Field | Type | Unit | Source |
 |---|---|---|---|
 | `lat` / `lon` | number | deg | System msg `operator_lat`/`operator_lon` |
+| `location_type` | string | — | `takeoff` \| `live_gnss` \| `fixed` (from System msg byte 1, bits 0-1). `takeoff` is the drone's launch point, **not** a live operator position — some transmitters toggle this across messages, so a consumer that treats every `operator.lat`/`lon` as "where the operator is standing right now" will see it jump between the drone's own start point and the operator's actual position. |
 | `id` | string | — | Operator-ID msg `operator_id` |
 | `alt_takeoff_ft` | number | ft | System `alt_takeoff_geo` (m → ft) |
 | `seen` | number | s | `now - last_operator_seen[id]` — staleness of this whole block |

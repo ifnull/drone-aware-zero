@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- System message operator location now carries `operator_location_type` (`takeoff` \| `live_gnss` \| `fixed`, decoded from byte 1 bits 0-1). Some transmitters (reported: Potensic RID-916, over BLE) toggle this across messages, which made the `operator` block's coordinates look like they randomly jumped between the drone's own position and the operator's — they were actually alternating between the drone's takeoff point and a live operator fix, both reported under the same field. Surfaced as `operator.location_type` in the JSON feed (additive, no `schema_version` bump) and as a `(takeoff)` annotation next to the Operator column on the live dashboard table. Not yet persisted to the history DB / `/map` view — see TODO.md.
+
 
 ## [1.0.0] — 2026-06-21
 

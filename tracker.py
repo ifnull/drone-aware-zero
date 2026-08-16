@@ -121,10 +121,11 @@ class DroneState:
     rid_source: Optional[str] = None
 
     # Operator / System block — most-recent wins.
-    op_lat: Optional[float]           = None
-    op_lon: Optional[float]           = None
-    op_alt_takeoff_m: Optional[float] = None
-    operator_id: Optional[str]        = None
+    op_lat: Optional[float]            = None
+    op_lon: Optional[float]            = None
+    op_location_type: Optional[str]    = None
+    op_alt_takeoff_m: Optional[float]  = None
+    operator_id: Optional[str]         = None
 
     # Self-ID — free-text purpose-of-flight string. Most-recent wins.
     self_id: Optional[str] = None
@@ -252,13 +253,21 @@ class Tracker:
     def update_system(self, *, mac: str,
                       op_lat: Optional[float], op_lon: Optional[float],
                       alt_takeoff_m: Optional[float],
-                      rssi: Optional[float], rid_source: str) -> None:
+                      rssi: Optional[float], rid_source: str,
+                      op_location_type: Optional[str] = None) -> None:
         """Decoded a System message (0x4) — operator location + takeoff alt.
 
         Fields are partial-updated: only overwrite when the decoder produced a
         usable value, so a System message whose operator coords got filtered
         by the parser (out-of-range / sentinel) does **not** wipe an earlier
         valid operator block.
+
+        ``op_location_type`` distinguishes what the coordinate actually is —
+        ``takeoff`` (the drone's launch point, not a live operator position),
+        ``live_gnss``, or ``fixed``. Some transmitters (e.g. the Potensic
+        RID-916, per a Reddit field report) toggle this across successive
+        System messages, so without surfacing it downstream consumers can't
+        tell a takeoff-point reading from a live operator fix.
         """
         now = time.monotonic()
         with self._lock:
@@ -269,6 +278,7 @@ class Tracker:
             self._bump_source(rid_source, now)
             if op_lat is not None:        state.op_lat           = op_lat
             if op_lon is not None:        state.op_lon           = op_lon
+            if op_location_type is not None: state.op_location_type = op_location_type
             if alt_takeoff_m is not None: state.op_alt_takeoff_m = alt_takeoff_m
             state.rssi_dbm              = rssi
             state.rid_source            = rid_source
@@ -384,6 +394,7 @@ class Tracker:
         operator: dict = {}
         if s.op_lat is not None:           operator["lat"]            = round(s.op_lat, 7)
         if s.op_lon is not None:           operator["lon"]            = round(s.op_lon, 7)
+        if s.op_location_type is not None: operator["location_type"] = s.op_location_type
         if s.operator_id is not None:      operator["id"]             = s.operator_id
         if s.op_alt_takeoff_m is not None:
             operator["alt_takeoff_ft"] = round(s.op_alt_takeoff_m * M_TO_FT, 1)

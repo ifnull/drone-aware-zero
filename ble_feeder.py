@@ -158,6 +158,15 @@ def parse_location(data: bytes) -> dict:
     return result
 
 
+# System message byte 1, bits 0-1: what the lat/lon in that message actually
+# represents. See wifi_feeder.OPERATOR_LOCATION_TYPE for the full rationale.
+OPERATOR_LOCATION_TYPE = {
+    0: "takeoff",
+    1: "live_gnss",
+    2: "fixed",
+}
+
+
 def parse_system_msg(data: bytes) -> dict:
     """Parse a System message (msg type 0x4) per ASTM F3411.
 
@@ -165,6 +174,7 @@ def parse_system_msg(data: bytes) -> dict:
     """
     if len(data) < 19:
         return {}
+    loc_type    = data[1] & 0x03
     op_lat      = struct.unpack_from('<i', data,  2)[0] * 1e-7
     op_lon      = struct.unpack_from('<i', data,  6)[0] * 1e-7
     area_count  = data[10]
@@ -176,8 +186,9 @@ def parse_system_msg(data: bytes) -> dict:
         "area_radius_m": area_radius,
     }
     if abs(op_lat) <= 90.0 and abs(op_lon) <= 180.0:
-        result["operator_lat"] = round(op_lat, 7)
-        result["operator_lon"] = round(op_lon, 7)
+        result["operator_lat"]           = round(op_lat, 7)
+        result["operator_lon"]           = round(op_lon, 7)
+        result["operator_location_type"] = OPERATOR_LOCATION_TYPE.get(loc_type, "reserved")
     if alt_takeoff > -1000.0:
         result["alt_takeoff_geo"] = round(alt_takeoff, 1)
     return result
@@ -322,6 +333,7 @@ class BLEFeeder:
                 mac=mac,
                 op_lat=msg.get("operator_lat"),
                 op_lon=msg.get("operator_lon"),
+                op_location_type=msg.get("operator_location_type"),
                 alt_takeoff_m=msg.get("alt_takeoff_geo"),
                 rssi=rssi, rid_source="ble",
             )

@@ -99,6 +99,17 @@ UA_TYPE = {
     255: "Other",
 }
 
+# System message byte 1, bits 0-1: what the lat/lon in that message actually
+# represents. "takeoff" means the drone's own launch point, not a live
+# operator position — conflating the two under one "operator" label is what
+# makes coordinates look like they randomly land in the drone vs. operator
+# column when a transmitter mixes location types across messages.
+OPERATOR_LOCATION_TYPE = {
+    0: "takeoff",
+    1: "live_gnss",
+    2: "fixed",
+}
+
 
 # -- Remote ID Decoder ---------------------------------------------------------
 
@@ -192,6 +203,7 @@ def parse_system_msg(data: bytes) -> dict:
     """
     if len(data) < 19:
         return {}
+    loc_type    = data[1] & 0x03
     op_lat      = struct.unpack_from('<i', data,  2)[0] * 1e-7
     op_lon      = struct.unpack_from('<i', data,  6)[0] * 1e-7
     area_count  = data[10]
@@ -205,8 +217,9 @@ def parse_system_msg(data: bytes) -> dict:
     # Spec ranges: lat ∈ [-90, 90], lon ∈ [-180, 180]. Out-of-range values are
     # placeholder/sentinel — keep them out of the feed rather than emit 152° N.
     if abs(op_lat) <= 90.0 and abs(op_lon) <= 180.0:
-        result["operator_lat"] = round(op_lat, 7)
-        result["operator_lon"] = round(op_lon, 7)
+        result["operator_lat"]           = round(op_lat, 7)
+        result["operator_lon"]           = round(op_lon, 7)
+        result["operator_location_type"] = OPERATOR_LOCATION_TYPE.get(loc_type, "reserved")
     # -1000.0 m is the ODID "unknown" altitude sentinel.
     if alt_takeoff > -1000.0:
         result["alt_takeoff_geo"] = round(alt_takeoff, 1)
@@ -797,6 +810,7 @@ class WiFiFeeder:
                 mac=mac,
                 op_lat=msg.get("operator_lat"),
                 op_lon=msg.get("operator_lon"),
+                op_location_type=msg.get("operator_location_type"),
                 alt_takeoff_m=msg.get("alt_takeoff_geo"),
                 rssi=rssi, rid_source=rid_source,
             )

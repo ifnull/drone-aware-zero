@@ -14,6 +14,9 @@ The FEED.md contract is in place; actually plumb the Pi → `ha-airspace` → Ho
 ### Validate against a spec-compliant transmitter
 Flash an ESP32-S3 with `ArduPilot/ArduRemoteID`. Closes the trust gap the spoofer's encoding quirks (`gs` 3×, `track` mod 180°) leave open. ~$10–15 of hardware.
 
+### Persist `operator.location_type` to history / `/map`
+The live feed now carries `operator.location_type` (`takeoff` \| `live_gnss` \| `fixed`) so the dashboard can flag a takeoff-point reading instead of showing it as a live operator fix. The history DB (`history.py`) doesn't store it yet — `query_operator` only returns the last `op_lat`/`op_lon`/`operator_id`, so `/map`'s operator marker can't make the same distinction for past detections. Needs a schema bump (new `op_location_type` column, `SCHEMA_VERSION` → 2 or an additive `ALTER TABLE`) plus wiring through `on_drone_change` and the map popup.
+
 ### Extract shared decoder
 `ble_feeder.py` and `wifi_feeder.py` each carry their own copy of `parse_basic_id` / `parse_location` / `parse_system_msg` / `parse_operator_id` / `parse_self_id` / `decode_rid_message`. Refactor to a shared `odid_decoder.py` so the next spec fix is a one-file change.
 
