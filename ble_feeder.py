@@ -167,6 +167,19 @@ OPERATOR_LOCATION_TYPE = {
 }
 
 
+def parse_self_id(data: bytes) -> dict:
+    """Parse a Self-ID message (msg type 0x3) per ASTM F3411 (25 bytes).
+
+    See wifi_feeder.parse_self_id for the full byte-layout commentary.
+    """
+    if len(data) < 25:
+        return {}
+    return {
+        "description_type": data[1],
+        "description":      data[2:25].rstrip(b'\x00').decode('ascii', errors='replace'),
+    }
+
+
 def parse_system_msg(data: bytes) -> dict:
     """Parse a System message (msg type 0x4) per ASTM F3411.
 
@@ -227,6 +240,8 @@ def decode_rid_message(raw_bytes: bytes) -> dict | None:
         result.update(parse_basic_id(raw_bytes))
     elif msg_type == 0x1:
         result.update(parse_location(raw_bytes))
+    elif msg_type == 0x3:
+        result.update(parse_self_id(raw_bytes))
     elif msg_type == 0x4:
         result.update(parse_system_msg(raw_bytes))
     elif msg_type == 0x5:
@@ -340,6 +355,11 @@ class BLEFeeder:
         elif mtype == "Operator ID":
             self.tracker.update_operator_id(
                 mac=mac, operator_id=msg.get("operator_id", ""),
+                rssi=rssi, rid_source="ble",
+            )
+        elif mtype == "Self ID":
+            self.tracker.update_self_id(
+                mac=mac, description=msg.get("description", ""),
                 rssi=rssi, rid_source="ble",
             )
 
