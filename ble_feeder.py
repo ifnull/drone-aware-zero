@@ -4,7 +4,11 @@ dump3411 BLE detector — offline Remote ID capture.
 
 Listens for BLE Remote ID advertisements (ASTM F3411, service UUID 0xFFFA),
 decodes them, and prints detections to the terminal / systemd journal.
-No network connection, no token, no data sharing.
+Distinguishes the two BLE transports on the wire: Bluetooth 4 legacy
+advertising carries one 25-byte ODID message per advertisement (reported
+as rid_source "ble", logged as [BLE]), while Bluetooth 5 long-range /
+extended advertising carries a Message Pack (reported as rid_source "ble5",
+logged as [BLE5]). No network connection, no token, no data sharing.
 
 Usage:
     sudo python3 ble_feeder.py [--adapter hci0] [--verbose]
@@ -90,7 +94,12 @@ def extract_rid_payload(service_data: bytes) -> tuple[str, str] | tuple[None, No
     ASTM F3411-22a BLE service data layout:
       Byte 0:    App Code (0x0D)
       Byte 1:    Rotation counter
-      Bytes 2-26: 25-byte ODID message
+      Bytes 2+:  One 25-byte ODID message (Bluetooth 4 legacy transport) or a
+                 Message Pack (Bluetooth 5 extended transport, 3 + 25*N bytes)
+
+    A Message Pack cannot fit a legacy ADV PDU (31-byte cap = 27 bytes of
+    service data), so "payload longer than a single message" is how the
+    caller classifies the transport as Bluetooth 5.
     """
     if len(service_data) == 27 and service_data[0] == 0x0D:
         return service_data[2:].hex(), "tail25_of_27"
@@ -98,6 +107,8 @@ def extract_rid_payload(service_data: bytes) -> tuple[str, str] | tuple[None, No
         return service_data[1:].hex(), "tail25_of_26"
     if len(service_data) == 25:
         return service_data.hex(), "raw25"
+    if len(service_data) > 27 and service_data[0] == 0x0D:
+        return service_data[2:].hex(), "pack"
     return None, None
 
 
@@ -269,6 +280,17 @@ class BLEFeeder:
         if not decoded:
             return
 
+        # Transport classification: BlueZ does not expose the PHY of a
+        # received advertisement, but the wire format does. Bluetooth 4
+        # legacy advertising carries one 25-byte ODID message per
+        # advertisement; Bluetooth 5 long-range / extended advertising
+        # carries a Message Pack. A pack physically cannot fit a legacy ADV
+        # PDU (31-byte payload cap), so pack => Bluetooth 5. Bluetooth 5
+        # advertisements report rid_source "ble5"; Bluetooth 4 legacy keeps
+        # the existing "ble" so consumers see no change.
+        is_pack = decoded.get("message_type") == "Message Pack"
+        ble_src = "ble5" if is_pack else "ble"
+
         if decoded.get("message_type") == "Message Pack":
             sub_messages = decoded.get("messages", [])
         else:
@@ -287,7 +309,7 @@ class BLEFeeder:
 
             # Feed the per-drone tracker if one was injected.
             if self.tracker is not None:
-                self._update_tracker(mac, mtype, msg, adv.rssi)
+                self._update_tracker(mac, mtype, msg, adv.rssi, ble_src)
 
             # Existing journald logging — unchanged.
             if self.verbose or mtype in ("Basic ID", "Location/Vector", "Self ID"):
@@ -304,18 +326,23 @@ class BLEFeeder:
                 else:
                     detail = ""
                 log.info(
-                    f"[BLE] MAC={mac}  RSSI={adv.rssi}dBm  "
+                    f"[{ble_src.upper()}] MAC={mac}  RSSI={adv.rssi}dBm  "
                     f"Type={mtype}  {detail}"
                 )
 
-    def _update_tracker(self, mac: str, mtype: str, msg: dict, rssi) -> None:
-        """Route a decoded sub-message to the appropriate Tracker.update_*."""
+    def _update_tracker(self, mac: str, mtype: str, msg: dict, rssi,
+                        rid_source: str) -> None:
+        """Route a decoded sub-message to the appropriate Tracker.update_*.
+
+        ``rid_source`` is the reported BLE transport: "ble" (Bluetooth 4
+        legacy advertising) or "ble5" (Bluetooth 5 long-range / extended).
+        """
         if mtype == "Basic ID":
             self.tracker.update_basic_id(
                 mac=mac, uas_id=msg.get("uas_id", ""),
                 id_type_raw=msg.get("id_type_raw", 0),
                 ua_type_raw=msg.get("ua_type_raw", 0),
-                rssi=rssi, rid_source="ble",
+                rssi=rssi, rid_source=rid_source,
             )
         elif mtype == "Location/Vector" and "latitude" in msg:
             self.tracker.update_location(
@@ -326,7 +353,7 @@ class BLEFeeder:
                 gs_mps=msg.get("ground_speed"),
                 heading_deg=msg.get("heading"),
                 vspeed_mps=msg.get("vertical_speed"),
-                rssi=rssi, rid_source="ble",
+                rssi=rssi, rid_source=rid_source,
             )
         elif mtype == "System":
             self.tracker.update_system(
@@ -335,12 +362,12 @@ class BLEFeeder:
                 op_lon=msg.get("operator_lon"),
                 op_location_type=msg.get("operator_location_type"),
                 alt_takeoff_m=msg.get("alt_takeoff_geo"),
-                rssi=rssi, rid_source="ble",
+                rssi=rssi, rid_source=rid_source,
             )
         elif mtype == "Operator ID":
             self.tracker.update_operator_id(
                 mac=mac, operator_id=msg.get("operator_id", ""),
-                rssi=rssi, rid_source="ble",
+                rssi=rssi, rid_source=rid_source,
             )
 
     async def run(self):

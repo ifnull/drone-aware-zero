@@ -7,8 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `ble5` as a new `rid_source` value for Bluetooth 5 long-range / extended advertising (a Message Pack per advertisement) — Bluetooth 4 legacy advertisements keep the existing `ble`, so consumers are unaffected. BLE journal lines log as `[BLE]` / `[BLE5]`; `/status` gains a `ble5` per-source counter alongside `ble`; the dashboard Transport column, history DB and MQTT `events/detection` payload carry it through the existing `rid_source` field — no new field, no `schema_version` bump. Classification is from the wire format — Bluetooth 5 RID advertisements carry a Message Pack, which cannot fit a legacy ADV PDU's 31-byte cap — because BlueZ does not expose the PHY of received advertisements. Whether BT5 is received at all depends on adapter + BlueZ support for coded-PHY scanning; the `ble5` counter staying at zero while `ble` climbs means it isn't.
+
 ### Fixed
 
+- Bluetooth 5 extended-advertising Remote ID (a Message Pack per advertisement, e.g. from ArduRemoteID / Dronetag transmitters) was previously dropped at the service-data length check and logged as "Unrecognised service data". `extract_rid_payload` now accepts the pack format and decodes all sub-messages.
 - System message operator location now carries `operator_location_type` (`takeoff` \| `live_gnss` \| `fixed`, decoded from byte 1 bits 0-1). Some transmitters (reported: Potensic RID-916, over BLE) toggle this across messages, which made the `operator` block's coordinates look like they randomly jumped between the drone's own position and the operator's — they were actually alternating between the drone's takeoff point and a live operator fix, both reported under the same field. Surfaced as `operator.location_type` in the JSON feed (additive, no `schema_version` bump) and as a `(takeoff)` annotation next to the Operator column on the live dashboard table. Not yet persisted to the history DB / `/map` view — see TODO.md.
 
 

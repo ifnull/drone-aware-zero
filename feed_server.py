@@ -146,8 +146,9 @@ _DASHBOARD_HTML = """<!doctype html>
 <script>
 // Sources we actively decode into the tracker. We always show these so a
 // dead radio is visible at a glance. Any other source the tracker reports
-// gets appended automatically.
-const KNOWN_SOURCES = ['ble', 'wifi_beacon', 'wifi_nan'];
+// gets appended automatically. 'ble5' is Bluetooth 5 long-range/extended
+// advertising; 'ble' covers Bluetooth 4 legacy advertising.
+const KNOWN_SOURCES = ['ble', 'ble5', 'wifi_beacon', 'wifi_nan'];
 
 // Recent-detections state — updated by tick() and loadRecent().
 let liveUasIds     = new Set();    // set of UAS-IDs in the live tracker
