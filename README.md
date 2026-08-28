@@ -103,6 +103,7 @@ Edit any of those in the service file before installing.
 --ble-adapter HCI    HCI adapter for BLE scan          (default: hci0)
 --wifi-iface IFACE   monitor-mode interface             (default: wlan1)
 --channel-dwell SEC  seconds per channel before hop     (default: 0.2)
+--channel CH         stay on one WiFi channel           (default: hop 1-11)
 --serve HOST:PORT    serve /data/remoteid.json + /      (omit for journal-only)
 --ttl SECS           drop drones after N s of silence   (default: 60)
 --verbose            log every decoded message type
