@@ -86,6 +86,7 @@ _DASHBOARD_HTML = """<!doctype html>
   .live-badge { color: #4caf50; font-size: 0.65rem; margin-left: 0.35rem;
                 vertical-align: middle; letter-spacing: 0.04em; }
   .loctype { color: var(--muted); font-size: 0.8em; }
+  .src-old { color: var(--muted); }
   .unit-toggle { display: inline-flex; gap: 2px; background: var(--rule);
                  padding: 2px; border-radius: 4px; margin-left: auto; }
   .unit-pill   { background: transparent; border: 0; color: var(--dim);
@@ -219,6 +220,19 @@ function coordCell(lat, lon) {
        + '" target="_blank" rel="noopener noreferrer">' + txt + '</a>';
 }
 
+// Transport column. rid_sources lists every transport the drone was heard
+// on, most-recent-first: render them all, the current transport at full
+// intensity and previously-heard ones dimmed. Falls back to rid_source
+// when the feed predates rid_sources.
+function transportCell(d) {
+  const all = d.rid_sources || [];
+  if (all.length === 0) return d.rid_source || '–';
+  return all.map((s, i) =>
+    i === 0 ? escapeHtml(s)
+            : '<span class="src-old">' + escapeHtml(s) + '</span>'
+  ).join(' ');
+}
+
 // Operator location_type annotation. "takeoff" is the drone's own launch
 // point, not a live operator fix — flag it so it doesn't read as "the
 // operator is standing where the drone took off."
@@ -337,7 +351,7 @@ async function tick() {
         + '<td class="num">' + fmt.num(conv.spd(d.gs), 1) + ' ' + lbl.spd() + '</td>'
         + '<td class="num">' + fmt.num(d.track, 0) + '°</td>'
         + '<td class="num">' + fmt.num(d.rssi, 0) + ' dBm</td>'
-        + '<td>' + (d.rid_source || '–') + '</td>'
+        + '<td>' + transportCell(d) + '</td>'
         + '<td class="num">' + fmt.age(d.seen) + '</td>'
         + '</tr>'
       ).join('');

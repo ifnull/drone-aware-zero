@@ -115,7 +115,7 @@ Edit any of those in the service file before installing.
 - Service health pill (ACTIVE / IDLE / OFFLINE)
 - Top tiles: uptime, last-beacon age, drones active, total messages, CPU temp
 - Per-transport message counters with last-seen timestamps
-- Table of currently tracked drones — UAS-ID, type, **drone + operator coordinates as Google Maps links**, altitude, AGL, ground speed, track, RSSI, transport, age
+- Table of currently tracked drones — UAS-ID, type, **drone + operator coordinates as Google Maps links**, altitude, AGL, ground speed, track, RSSI, transport (every transport the drone was heard on, most recent first — previously-heard transports dimmed), age
 - Unit toggle (per-browser, persists in `localStorage`)
 
 ## JSON feed
