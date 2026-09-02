@@ -54,7 +54,7 @@ Use stdlib `http.server` — no async, no extra deps. dump3411 is designed to ru
 | `message_count` | number | — |  | running count of decoded RID messages for this `id` since first seen (per-drone; distinct from the envelope `messages`) |
 | `seen` | number | s | ✓ | `now - last_seen[id]` |
 | `seen_pos` | number | s |  | `now - last_pos_seen[id]` |
-| `rid_source` | string | — |  | `ble` \| `wifi_beacon` \| `wifi_nan` |
+| `rid_source` | string | — |  | `ble` \| `ble5` \| `wifi_beacon` \| `wifi_nan` — `ble` = Bluetooth 4 legacy advertising (one 25-byte ODID message per advertisement); `ble5` = Bluetooth 5 long-range / extended advertising (a Message Pack per advertisement), classified from the wire structure — a pack cannot fit legacy advertising's 31-byte PDU cap — because BlueZ does not expose the PHY of received advertisements. |
 | `self_id` | string | — |  | Self-ID `description` — free-text purpose of flight (e.g. "Search and Rescue", "Photography Lesson") |
 | `self_id_seen` | number | s |  | `now - last_self_id_seen[id]` |
 | `operator` | object | — |  | from System / Operator-ID msgs (see below) |
