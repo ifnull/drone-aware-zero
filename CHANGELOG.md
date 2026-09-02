@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `--channel CH` (on both `dump3411.py` and standalone `wifi_feeder.py`) pins the Wi-Fi radio to a single fixed 2.4 GHz channel (1-11) instead of hopping — full dwell on a transmitter whose channel you already know, at the cost of blind spots on the other ten. `--channel-dwell` is ignored in this mode.
+
+
 ### Fixed
 
 - System message operator location now carries `operator_location_type` (`takeoff` \| `live_gnss` \| `fixed`, decoded from byte 1 bits 0-1). Some transmitters (reported: Potensic RID-916, over BLE) toggle this across messages, which made the `operator` block's coordinates look like they randomly jumped between the drone's own position and the operator's — they were actually alternating between the drone's takeoff point and a live operator fix, both reported under the same field. Surfaced as `operator.location_type` in the JSON feed (additive, no `schema_version` bump) and as a `(takeoff)` annotation next to the Operator column on the live dashboard table. Not yet persisted to the history DB / `/map` view — see TODO.md.
