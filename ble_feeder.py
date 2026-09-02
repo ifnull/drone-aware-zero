@@ -387,7 +387,7 @@ class BLEFeeder:
         elif mtype == "Self ID":
             self.tracker.update_self_id(
                 mac=mac, description=msg.get("description", ""),
-                rssi=rssi, rid_source="ble",
+                rssi=rssi, rid_source=rid_source,
             )
 
     async def run(self):
