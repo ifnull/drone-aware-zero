@@ -390,21 +390,50 @@ class BLEFeeder:
                 rssi=rssi, rid_source=rid_source,
             )
 
+    # Reconnect backoff bounds. The common failure is a startup race — the
+    # WiFi feeder's `rfkill unblock all` (wifi_feeder.set_monitor_mode) also
+    # touches the Bluetooth device, and BlueZ answers NotReady for a second
+    # or two while it powers the controller back up. One retry covers that;
+    # the cap keeps a genuinely absent adapter down to one line per minute.
+    RETRY_DELAY_MIN = 1.0
+    RETRY_DELAY_MAX = 60.0
+
     async def run(self):
         log.info(f"dump3411 BLE detector — adapter {self.adapter}")
         log.info("Scanning for Remote ID broadcasts (UUID 0xFFFA)...")
 
-        scanner = BleakScanner(
-            detection_callback=self.on_advertisement,
-            adapter=self.adapter,
-        )
-        async with scanner:
-            ticker = 0
-            while True:
-                await asyncio.sleep(1.0)
-                ticker += 1
-                if ticker % 60 == 0:
-                    log.info(f"[Heartbeat] seen={self.count}  temp={get_cpu_temp()}°C")
+        # Scan under a retry loop: this coroutine is the whole BLE thread
+        # (dump3411.py runs it via asyncio.run in a daemon thread), so an
+        # escaping exception silently ends BLE for the life of the process
+        # while WiFi keeps serving — the failure looks like empty airspace,
+        # not a dead radio. Anything BlueZ raises is transient as far as we
+        # are concerned: log it, back off, rebuild the scanner.
+        delay = self.RETRY_DELAY_MIN
+        while True:
+            try:
+                scanner = BleakScanner(
+                    detection_callback=self.on_advertisement,
+                    adapter=self.adapter,
+                )
+                async with scanner:
+                    # Reset only once the scanner is actually up, so an
+                    # adapter that fails on every start keeps backing off.
+                    delay = self.RETRY_DELAY_MIN
+                    ticker = 0
+                    while True:
+                        await asyncio.sleep(1.0)
+                        ticker += 1
+                        if ticker % 60 == 0:
+                            log.info(f"[Heartbeat] seen={self.count}  temp={get_cpu_temp()}°C")
+            except asyncio.CancelledError:
+                raise                       # shutdown, not a radio failure
+            except Exception as exc:
+                log.warning(
+                    f"BLE scan on {self.adapter} stopped ({type(exc).__name__}: {exc}) "
+                    f"— retrying in {delay:.0f}s"
+                )
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, self.RETRY_DELAY_MAX)
 
 
 def main():
